@@ -1,8 +1,9 @@
 // api/guardian-chat.js
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   // Handle preflight
@@ -10,9 +11,21 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Only allow POST
+  // Health check for GET requests
+  if (req.method === 'GET') {
+    return res.status(200).json({ 
+      status: 'ok', 
+      message: 'Guardian Chat API är aktiv',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Only allow POST for actual requests
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ 
+      error: 'Method not allowed',
+      allowedMethods: ['POST', 'OPTIONS', 'GET']
+    });
   }
 
   try {
@@ -225,7 +238,7 @@ VIKTIGT:
         messages: messages,
         response_format: { type: 'json_object' },
         temperature: 0.7,
-        max_tokens: 5000
+        max_tokens: 2500
       }),
       signal: controller.signal
     }).catch(e => {
