@@ -1,10 +1,16 @@
 // api/guardian-chat.js
 export default async function handler(req, res) {
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -14,20 +20,24 @@ export default async function handler(req, res) {
     let { conversationHistory } = body;
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+    // Check for API key
     if (!OPENAI_API_KEY) {
       return res.status(500).json({
-        error: 'Saknar OPENAI_API_KEY i Vercel',
-        details: 'Lägg till env-variabeln och deploya om'
+        error: 'Saknar OPENAI_API_KEY',
+        details: 'Lägg till API-nyckeln i Vercel environment variables'
       });
     }
 
+    // Validate conversation history
     if (!Array.isArray(conversationHistory)) {
       conversationHistory = [];
     }
 
+    // Keep only recent messages to stay within token limits
     const recentHistory = conversationHistory.slice(-10);
 
-    const systemPrompt = `Du är pedagogisk kommunikationsassistent för Karlskoga kommun. Du hjälper pedagogisk personal att skapa professionell kommunikation till vårdnadshavare.
+    // System prompt with complete instructions
+    const systemPrompt = `Du är pedagogisk kommunikationsassistent för svensk skolverksamhet. Du hjälper pedagogisk personal att skapa professionell kommunikation till vårdnadshavare.
 
 PROCESS:
 1) Om du behöver mer information: Svara med JSON: {"status": "ask", "question": "din fråga här"}
@@ -46,7 +56,7 @@ TONALITET & STIL:
 - Respektfull och inkluderande
 - Använd "vi" när du pratar om verksamheten och "ert barn/ditt barn" när det är lämpligt
 - Aktiva verb och tydliga handlingsuppmaningar
-- Undvik pedagogisk jargong -skriv för alla föräldrar oavsett utbildningsnivå
+- Undvik pedagogisk jargong - skriv för alla föräldrar oavsett utbildningsnivå
 
 VIKTIGA PRINCIPER:
 - Var specifik med datum, tider och platser
@@ -73,7 +83,7 @@ Samling vid busshållplatsen kl 8.45. Vi är tillbaka vid skolan senast 14.30.
 Har ni frågor? Hör av er till mig!
 
 Mvh Maria Svensson
-maria.svensson@karlskoga.se"
+maria.svensson@skola.se"
 
 📧 E-POST:
 Rubrik: "Föräldramöte 15 april kl 18.00"
@@ -99,8 +109,8 @@ Klasslärare åk 4A"
 
 ✉️ INFORMATIONSBREV:
 Rubrik: "Information om höstterminens upplägg"
-Text: "Karlskoga kommun
-Hagaskolan
+Text: "Skolan
+Avdelningen
 
 Hej kära vårdnadshavare!
 
@@ -123,7 +133,7 @@ VIKTIGA DATUM
 
 HAR NI FRÅGOR?
 Tveka inte att höra av er! Vi nås enklast via Skolplattformen eller på:
-maria.svensson@karlskoga.se / 0586-610 00
+maria.svensson@skola.se / 010-123 45 67
 
 Varma hälsningar,
 Maria Svensson och Anna Lundberg
@@ -143,7 +153,7 @@ Varmt välkomna!
 /Förskolan Solstrålen"
 
 💬 SMS/SNABBMEDDELANDE:
-Text: "Påminnelse: Föräldramöte i morgon kl 18.00 i klassrummet. Glöm inte att anmäla dig! Hälsningar Maria"
+Text: "Påminnelse: Föräldramöte i morgon kl 18.00 i klassrummet. Anmäl dig via Skolplattformen. Hälsningar Maria"
 
 === JSON-FORMAT ===
 
@@ -190,6 +200,7 @@ VIKTIGT:
 - Var konkret med handlingar och datum
 - Inkludera kontaktinfo där det är relevant`;
 
+    // Build messages array
     const messages = [
       { role: 'system', content: systemPrompt },
       ...recentHistory.map(m => ({
@@ -198,9 +209,11 @@ VIKTIGT:
       }))
     ];
 
+    // Set up timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 28000);
 
+    // Call OpenAI API
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -221,9 +234,13 @@ VIKTIGT:
 
     clearTimeout(timeout);
 
+    // Handle OpenAI errors
     if (!resp.ok) {
-      const t = await resp.text();
-      return res.status(resp.status).json({ error: 'OpenAI fel', details: t });
+      const errorText = await resp.text();
+      return res.status(resp.status).json({ 
+        error: 'OpenAI API-fel', 
+        details: errorText.slice(0, 500) 
+      });
     }
 
     const data = await resp.json();
@@ -233,6 +250,7 @@ VIKTIGT:
       return res.status(500).json({ error: 'Tomt AI-svar' });
     }
 
+    // Parse JSON response
     let parsed;
     try {
       parsed = JSON.parse(raw);
@@ -243,6 +261,7 @@ VIKTIGT:
       });
     }
 
+    // Helper function to normalize channels
     function normalizeChannels(channels) {
       if (!channels || typeof channels !== 'object') return null;
 
@@ -299,6 +318,7 @@ VIKTIGT:
       return out;
     }
 
+    // Handle "ask" status - AI needs more information
     if (parsed.status === 'ask') {
       const question = String(parsed.question || 'Vad vill du informera vårdnadshavare om?');
       const assistantHistoryContent = `FRÅGA: ${question}`;
@@ -309,6 +329,7 @@ VIKTIGT:
       });
     }
 
+    // Handle "ready" status - AI has generated content
     if (parsed.status === 'ready') {
       const channels = normalizeChannels(parsed.channels);
       if (!channels || Object.keys(channels).length === 0) {
@@ -325,12 +346,14 @@ VIKTIGT:
       });
     }
 
+    // Handle unexpected status
     return res.status(500).json({
       error: 'Oväntad status i AI-svar',
       details: parsed
     });
 
   } catch (err) {
+    console.error('Handler error:', err);
     return res.status(500).json({
       error: 'Något gick fel',
       details: err.message,
@@ -339,4 +362,7 @@ VIKTIGT:
   }
 }
 
-export const config = { maxDuration: 30 };
+// Vercel configuration
+export const config = { 
+  maxDuration: 30 
+};
