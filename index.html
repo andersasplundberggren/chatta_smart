@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kommunicera med vårdnadshavare</title>
+    <title>Vad vill du säga</title>
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72"><text y="50%" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="56">👨‍👩‍👧‍👦</text></svg>' />
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -545,7 +545,7 @@
             <div class="logo-area">
                 <div class="logo-icon">👨‍👩‍👧‍👦</div>
                 <div class="logo-text">
-                    <h1>Kommunicera med vårdnadshavare</h1>
+                    <h1>Vad vill du säga?</h1>
                     <p>AI-driven kommunikationsassistent</p>
                 </div>
             </div>
@@ -596,8 +596,9 @@ Berätta vad du vill kommunicera, så ställer jag några frågor för att skapa
     </div>
 
     <script>
-        // API endpoint - byt ut till din egen Vercel URL när du har deployat
-        const API_URL = '/api/guardian-chat';
+        // API endpoint - pekar till Vercel backend
+        // Byt ut till din egen Vercel URL!
+        const API_URL = 'https://chatta-smart-p0zswe5pe-andersasplundberggrens-projects.vercel.app/api/guardian-chat';
         
         let conversationHistory = [];
         let isWaiting = false;
